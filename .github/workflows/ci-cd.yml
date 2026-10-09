@@ -36,6 +36,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      has-kubeconfig: ${{ steps.kubeconfig.outputs.present }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,9 +59,16 @@ jobs:
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:latest
 
+      # Los secretos no se pueden leer en el "if" de un job; se expone aquí
+      - name: Comprobar secreto KUBECONFIG
+        id: kubeconfig
+        run: echo "present=${{ secrets.KUBECONFIG != '' }}" >> "$GITHUB_OUTPUT"
+
   # 3. Desplegar automáticamente en el clúster
+  # (se omite si el repositorio no tiene el secreto KUBECONFIG)
   deploy:
     needs: docker
+    if: needs.docker.outputs.has-kubeconfig == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
